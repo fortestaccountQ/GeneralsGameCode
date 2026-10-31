@@ -1017,6 +1017,8 @@ InGameUI::InGameUI()
 	m_mouseModeCursor = Mouse::ARROW;
 	m_mousedOverDrawableID = INVALID_DRAWABLE_ID;
 
+	m_lastMoney = ~0u;
+	m_lastIncome = ~0u;
 	m_currentlyPlayingMovie.clear();
 	m_militarySubtitle = nullptr;
 	m_popupMessageData = nullptr;
@@ -1982,8 +1984,6 @@ void InGameUI::update()
 
 	// update the player money window if the money amount has changed
 	// this seems like as good a place as any to do the power hide/show
-	static UnsignedInt lastMoney = ~0u;
-	static UnsignedInt lastIncome = ~0u;
 	static NameKeyType moneyWindowKey = TheNameKeyGenerator->nameToKey( "ControlBar.wnd:MoneyDisplay" );
 	static NameKeyType powerWindowKey = TheNameKeyGenerator->nameToKey( "ControlBar.wnd:PowerWindow" );
 
@@ -2006,13 +2006,13 @@ void InGameUI::update()
 		if (!doShowIncome)
 		{
 			UnsignedInt currentMoney = money->countMoney();
-			if( lastMoney != currentMoney )
+			if( m_lastMoney != currentMoney )
 			{
 				UnicodeString buffer;
 
 				buffer.format(TheGameText->fetch( "GUI:ControlBarMoneyDisplay" ), currentMoney );
 				GadgetStaticTextSetText( moneyWin, buffer );
-				lastMoney = currentMoney;
+				m_lastMoney = currentMoney;
 
 			}
 		}
@@ -2021,7 +2021,7 @@ void InGameUI::update()
 			// TheSuperHackers @feature L3-M 21/08/2025 player money per minute
 			UnsignedInt currentMoney = money->countMoney();
 			UnsignedInt cashPerMin = money->getCashPerMinute();
-			if ( lastMoney != currentMoney || lastIncome != cashPerMin )
+			if ( m_lastMoney != currentMoney || m_lastIncome != cashPerMin )
 			{
 				UnicodeString buffer;
 				UnicodeString moneyStr = formatMoneyValue(currentMoney);
@@ -2029,8 +2029,8 @@ void InGameUI::update()
 
 				buffer.format(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ControlBarMoneyDisplayIncome", L"$ %ls +%ls/min", moneyStr.str(), incomeStr.str()));
 				GadgetStaticTextSetText(moneyWin, buffer);
-				lastMoney = currentMoney;
-				lastIncome = cashPerMin;
+				m_lastMoney = currentMoney;
+				m_lastIncome = cashPerMin;
 			}
 		}
 		moneyWin->winHide(FALSE);
@@ -4111,6 +4111,9 @@ void InGameUI::destroyControlBar()
 		TheWindowManager->winDestroy(m_controlBarWindow);
 		m_controlBarWindow = nullptr;
 		m_idleWorkerWin = nullptr; // This window belongs to the Control Bar and is implicitly deleted as well.
+		m_currentIdleWorkerDisplay = -1;
+		m_lastMoney = ~0u;
+		m_lastIncome = ~0u;
 	}
 }
 
@@ -5908,12 +5911,70 @@ void InGameUI::resetIdleWorker()
 
 void InGameUI::recreateControlBar()
 {
+	Bool wasVisible = (m_controlBarWindow != nullptr && !m_controlBarWindow->winIsHidden());
+	Bool wasScienceVisible = (TheControlBar != nullptr && TheControlBar->isPurchaseScienceVisible());
+	ControlBarStages savedStage = (TheControlBar != nullptr) ? TheControlBar->getCurrentStage() : CONTROL_BAR_STAGE_DEFAULT;
+	Player *savedLookAtPlayer = (TheControlBar != nullptr) ? TheControlBar->getObserverLookAtPlayer() : nullptr;
+	Player *savedObservedPlayer = (TheControlBar != nullptr) ? TheControlBar->getObservedPlayer() : nullptr;
+
+	if (TheControlBar)
+	{
+		TheControlBar->showRallyPoint(nullptr);
+	}
+
+	setGUICommand(nullptr);
+
 	destroyControlBar();
 	createControlBar();
 
 	delete TheControlBar;
 	TheControlBar = NEW ControlBar;
 	TheControlBar->init();
+
+	if (ThePlayerList)
+	{
+		Player *localPlayer = ThePlayerList->getLocalPlayer();
+		if (localPlayer)
+		{
+			TheControlBar->setControlBarSchemeByPlayer(localPlayer);
+			TheControlBar->initSpecialPowershortcutBar(localPlayer);
+		}
+	}
+
+	if (savedLookAtPlayer && TheControlBar)
+	{
+		TheControlBar->setObserverLookAtPlayer(savedLookAtPlayer);
+	}
+	if (savedObservedPlayer && TheControlBar)
+	{
+		TheControlBar->setObservedPlayer(savedObservedPlayer);
+	}
+
+	if (wasVisible)
+	{
+		ShowControlBar(TRUE);
+		if (savedStage != CONTROL_BAR_STAGE_DEFAULT && savedStage != CONTROL_BAR_STAGE_HIDDEN && TheControlBar)
+		{
+			TheControlBar->switchControlBarStage(savedStage);
+		}
+	}
+	else
+	{
+		HideControlBar(TRUE);
+	}
+
+	m_lastMoney = ~0u;
+	m_lastIncome = ~0u;
+
+	if (TheControlBar)
+	{
+		TheControlBar->markUIDirty();
+	}
+
+	if (wasScienceVisible && TheControlBar)
+	{
+		TheControlBar->showPurchaseScience();
+	}
 }
 
 void InGameUI::refreshCustomUiResources()

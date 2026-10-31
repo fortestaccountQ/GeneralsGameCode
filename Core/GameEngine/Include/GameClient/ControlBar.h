@@ -702,6 +702,10 @@ public:
 	void showPurchaseScience();
 	void hidePurchaseScience();
 	void togglePurchaseScience();
+	Bool isPurchaseScienceVisible() const;
+
+	/// show rally point at world location, a nullptr location will hide any visible rally point marker
+	void showRallyPoint( const Coord3D *loc );
 
 	Bool hasAnyShortcutSelection() const;
 	Bool canShowSpecialPowerShortcut() const;
@@ -761,6 +765,7 @@ public:
 //	ControlBarResizer *getControlBarResizer() {return m_controlBarResizer;}
 
 	// Functions for repositioning/resizing the control bar
+	ControlBarStages getCurrentStage() const { return m_currentControlBarStage; }
 	void switchControlBarStage( ControlBarStages stage );
 	void toggleControlBarStage();
 
@@ -828,8 +833,6 @@ protected:
 	/// show/hide the portrait window image using the image from the object
 	void setPortraitByObject( Object *obj );
 
-	/// show rally point at world location, a nullptr location will hide any visible rally point marker
-	void showRallyPoint( const Coord3D *loc );
 
 	/// post process step, after all commands and command sets are loaded
 	void postProcessCommands();

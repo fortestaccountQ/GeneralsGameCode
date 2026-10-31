@@ -58,6 +58,7 @@
 #include "GameClient/Shell.h"
 #include "GameClient/KeyDefs.h"
 #include "GameClient/GameWindowManager.h"
+#include "GameClient/GameWindowTransitions.h"
 #include "GameClient/Mouse.h"
 #include "GameClient/GameText.h"
 #include "GameClient/Display.h"
@@ -822,31 +823,39 @@ static void saveOptions()
 	oldDispSettings.xRes = TheDisplay->getWidth();
 	oldDispSettings.yRes = TheDisplay->getHeight();
 	oldDispSettings.bitDepth = TheDisplay->getBitDepth();
-	oldDispSettings.windowed = TheDisplay->getWindowed();
+	oldDispSettings.windowed = TheGlobalData->m_windowed;
 
 	if (comboBoxResolution && comboBoxResolution->winGetEnabled() && index < TheDisplay->getDisplayModeCount() && index >= 0)
 	{
 		TheDisplay->getDisplayModeDescription(index,&xres,&yres,&bitDepth);
 		if (TheGlobalData->m_xResolution != xres || TheGlobalData->m_yResolution != yres)
 		{
-			if (TheDisplay->setDisplayMode(xres,yres,bitDepth,TheDisplay->getWindowed()))
+			if (TheDisplay->setDisplayMode(xres, yres, bitDepth, true))
 			{
+				TheDisplay->setWindowed(TheGlobalData->m_windowed);
 				dispChanged = TRUE;
 				TheWritableGlobalData->m_xResolution = xres;
 				TheWritableGlobalData->m_yResolution = yres;
 
 				TheHeaderTemplateManager->onResolutionChanged();
 				TheMouse->onResolutionChanged();
+				TheMouse->refreshCursorCapture();
 
 				//Save new settings for a dialog box confirmation after options are accepted
 				newDispSettings.xRes = xres;
 				newDispSettings.yRes = yres;
 				newDispSettings.bitDepth = bitDepth;
-				newDispSettings.windowed = TheDisplay->getWindowed();
+				newDispSettings.windowed = TheGlobalData->m_windowed;
 
 				AsciiString prefString;
 				prefString.format("%d %d", xres, yres );
 				(*pref)["Resolution"] = prefString;
+
+				if (TheTransitionHandler)
+				{
+					TheTransitionHandler->reset();
+				}
+				reflowAllWindows(xres, yres);
 
 				TheShell->recreateWindowLayouts();
 
@@ -1372,8 +1381,7 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 		if (comboBoxDetail)
 			comboBoxDetail->winEnable(FALSE);
 
-		if (comboBoxResolution)
-			comboBoxResolution->winEnable(FALSE);
+		// In-game resolution change allowed with live resize reflow
 
 		if (textEntryFirewallPortOverride)
 			textEntryFirewallPortOverride->winEnable(FALSE);

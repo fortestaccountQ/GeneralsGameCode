@@ -981,6 +981,8 @@ protected:
 	ObjectList									m_idleWorkers[MAX_PLAYER_COUNT];
 	GameWindow *								m_idleWorkerWin;
 	Int													m_currentIdleWorkerDisplay;
+	UnsignedInt									m_lastMoney;
+	UnsignedInt									m_lastIncome;
 
 	DrawableID									m_soloNexusSelectedDrawableID;  ///< The drawable of the nexus, if only one angry mob is selected, otherwise, null
 
